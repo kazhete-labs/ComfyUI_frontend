@@ -59,6 +59,12 @@
         bottom-divider
         :show-generation-time-sort="activeTab === 'output'"
       />
+      <div
+        v-if="isInFolderView && hasFolderGenerationDetails"
+        class="border-b border-comfy-input px-2 py-2 2xl:px-4"
+      >
+        <JobGenerationDetails :details="folderGenerationDetails" />
+      </div>
       <!-- Tab list -->
       <div
         v-if="!isInFolderView"
@@ -202,6 +208,7 @@ import { useI18n } from 'vue-i18n'
 
 import NoResultsPlaceholder from '@/components/common/NoResultsPlaceholder.vue'
 import { LOAD3D_VIEWER_DIALOG_PROPS } from '@/components/load3d/load3dViewerDialog'
+import JobGenerationDetails from '@/components/queue/job/JobGenerationDetails.vue'
 import AssetsSidebarGridView from '@/components/sidebar/tabs/AssetsSidebarGridView.vue'
 import AssetsSidebarListView from '@/components/sidebar/tabs/AssetsSidebarListView.vue'
 import SidebarTabTemplate from '@/components/sidebar/tabs/SidebarTabTemplate.vue'
@@ -240,6 +247,7 @@ import type { MediaKind } from '@/platform/assets/schemas/mediaAssetSchema'
 import { resolveOutputAssetItems } from '@/platform/assets/utils/outputAssetUtil'
 import { isCloud } from '@/platform/distribution/types'
 import { openHdrViewer } from '@/services/hdrViewerService'
+import { getJobDetail } from '@/services/jobOutputCache'
 import { useAssetsStore } from '@/stores/assetsStore'
 import { useDialogStore } from '@/stores/dialogStore'
 import {
@@ -248,6 +256,8 @@ import {
   isPreviewableMediaType
 } from '@/utils/formatUtil'
 import { isHdrImageFilename } from '@/utils/hdrFormatUtil'
+import { extractJobGenerationDetails, extractJobPromptGraph, hasJobGenerationDetails } from '@/utils/jobGenerationDetails';
+import type { JobGenerationDetails as JobGenerationDetailsData } from '@/utils/jobGenerationDetails';
 import type { AugmentedResultItem } from '@/utils/resultItem'
 
 const Load3dViewerContent = defineAsyncComponent(
@@ -262,6 +272,14 @@ const activeTab = ref<'input' | 'output'>('output')
 const folderJobId = ref<string | null>(null)
 const folderExecutionTime = ref<number | undefined>(undefined)
 const expectedFolderCount = ref(0)
+const folderGenerationDetails = ref<JobGenerationDetailsData>({
+  seeds: [],
+  strengths: [],
+  prompts: []
+})
+const hasFolderGenerationDetails = computed(() =>
+  hasJobGenerationDetails(folderGenerationDetails.value)
+)
 const isInFolderView = computed(() => folderJobId.value !== null)
 const viewMode = useStorage<MediaAssetViewMode>(
   'Comfy.Assets.Sidebar.ViewMode',
@@ -614,8 +632,15 @@ const enterFolderView = async (asset: AssetItem) => {
   folderJobId.value = jobId
   folderExecutionTime.value = executionTimeInSeconds
   expectedFolderCount.value = metadata.outputCount ?? 0
+  folderGenerationDetails.value = { seeds: [], strengths: [], prompts: [] }
 
-  await loadFolderAssets(0, metadata, { createdAt: asset.created_at })
+  const [, jobDetail] = await Promise.all([
+    loadFolderAssets(0, metadata, { createdAt: asset.created_at }),
+    getJobDetail(jobId)
+  ])
+  folderGenerationDetails.value = extractJobGenerationDetails(
+    extractJobPromptGraph(jobDetail)
+  )
 
   if (folderError.value) {
     toast.add({
@@ -631,6 +656,7 @@ const exitFolderView = () => {
   folderJobId.value = null
   folderExecutionTime.value = undefined
   expectedFolderCount.value = 0
+  folderGenerationDetails.value = { seeds: [], strengths: [], prompts: [] }
   folderAssets.value = []
   searchQuery.value = ''
 }

@@ -1,6 +1,6 @@
 <template>
   <div
-    class="w-[300px] min-w-[260px] rounded-lg border border-interface-stroke bg-interface-panel-surface shadow-md"
+    class="w-[320px] min-w-[260px] rounded-lg border border-interface-stroke bg-interface-panel-surface shadow-md"
   >
     <div class="flex items-center border-b border-interface-stroke p-4">
       <span class="text-sm/normal font-normal text-text-primary">{{
@@ -47,6 +47,11 @@
         </template>
       </div>
 
+      <JobGenerationDetails
+        v-if="hasGenerationDetails"
+        :details="generationDetails"
+      />
+
       <div v-if="jobState === 'failed'" class="grid grid-cols-2 gap-x-2">
         <div
           class="flex items-center text-xs/normal font-normal text-text-primary"
@@ -88,18 +93,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import JobGenerationDetails from '@/components/queue/job/JobGenerationDetails.vue'
 import Button from '@/components/ui/button/Button.vue'
 import { useCopyToClipboard } from '@/composables/useCopyToClipboard'
 import { isCloud } from '@/platform/distribution/types'
 import { useWorkflowStore } from '@/platform/workflow/management/stores/workflowStore'
 import { useDialogService } from '@/services/dialogService'
+import { getJobDetail } from '@/services/jobOutputCache'
 import { useExecutionStore } from '@/stores/executionStore'
 import { useQueueStore } from '@/stores/queueStore'
 import type { TaskItemImpl } from '@/stores/queueStore'
 import { formatClockTime } from '@/utils/dateTimeUtil'
+import { extractJobGenerationDetails, extractJobPromptGraph, hasJobGenerationDetails } from '@/utils/jobGenerationDetails';
+import type { JobGenerationDetails as JobGenerationDetailsData } from '@/utils/jobGenerationDetails';
 import { jobStateFromTask } from '@/utils/queueUtil'
 
 import { useJobErrorReporting } from './useJobErrorReporting'
@@ -342,4 +351,31 @@ const { errorMessageValue, copyErrorMessage, reportJobError } =
     copyToClipboard,
     dialog
   })
+
+const generationDetails = ref<JobGenerationDetailsData>({
+  seeds: [],
+  strengths: [],
+  prompts: []
+})
+const hasGenerationDetails = computed(() =>
+  hasJobGenerationDetails(generationDetails.value)
+)
+
+watch(
+  () => props.jobId,
+  async (jobId, _prev, onCleanup) => {
+    let cancelled = false
+    onCleanup(() => {
+      cancelled = true
+    })
+    generationDetails.value = { seeds: [], strengths: [], prompts: [] }
+    if (!jobId) return
+    const detail = await getJobDetail(jobId)
+    if (cancelled) return
+    generationDetails.value = extractJobGenerationDetails(
+      extractJobPromptGraph(detail)
+    )
+  },
+  { immediate: true }
+)
 </script>

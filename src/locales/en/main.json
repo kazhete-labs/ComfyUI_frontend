@@ -1500,6 +1500,11 @@
       "failedAfter": "Failed after",
       "errorMessage": "Error message",
       "report": "Report",
+      "seedLabel": "Seed ({name})",
+      "strengthLabel": "Strength ({name})",
+      "promptLabel": "Prompt ({name})",
+      "expandPrompt": "Show prompt",
+      "collapsePrompt": "Hide prompt",
       "queuePositionValue": "~{count} job ahead of yours | ~{count} jobs ahead of yours",
       "eta": {
         "seconds": "~{count} second | ~{count} seconds",
