@@ -7,9 +7,9 @@ type ApiNode = {
   _meta?: { title?: string }
 }
 
-export type JobSeedDetail = { nodeName: string; value: string }
-export type JobLoraStrengthDetail = { loraName: string; value: string }
-export type JobPromptDetail = { nodeName: string; value: string }
+type JobSeedDetail = { nodeName: string; value: string }
+type JobLoraStrengthDetail = { loraName: string; value: string }
+type JobPromptDetail = { nodeName: string; value: string }
 
 export type JobGenerationDetails = {
   seeds: JobSeedDetail[]
