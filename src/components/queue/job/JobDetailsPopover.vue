@@ -107,8 +107,14 @@ import { useExecutionStore } from '@/stores/executionStore'
 import { useQueueStore } from '@/stores/queueStore'
 import type { TaskItemImpl } from '@/stores/queueStore'
 import { formatClockTime } from '@/utils/dateTimeUtil'
-import { extractJobGenerationDetails, extractJobPromptGraph, hasJobGenerationDetails } from '@/utils/jobGenerationDetails';
-import type { JobGenerationDetails as JobGenerationDetailsData } from '@/utils/jobGenerationDetails';
+import {
+  extractJobGenerationDetails,
+  extractJobPromptGraph,
+  flattenJobGenerationDetails,
+  flattenJobPromptFields,
+  hasJobGenerationDetails
+} from '@/utils/jobGenerationDetails'
+import type { JobGenerationDetails as JobGenerationDetailsData } from '@/utils/jobGenerationDetails'
 import { jobStateFromTask } from '@/utils/queueUtil'
 
 import { useJobErrorReporting } from './useJobErrorReporting'
@@ -372,9 +378,17 @@ watch(
     if (!jobId) return
     const detail = await getJobDetail(jobId)
     if (cancelled) return
-    generationDetails.value = extractJobGenerationDetails(
-      extractJobPromptGraph(detail)
-    )
+    const promptGraph = extractJobPromptGraph(detail)
+    generationDetails.value = extractJobGenerationDetails(promptGraph)
+    // console.log/info are stripped as pure in the production Vite build;
+    // console.warn is kept. Filter DevTools by "[JobDetailsPopover]".
+    console.warn('[JobDetailsPopover] info', {
+      jobId,
+      status: detail?.status,
+      hasPromptGraph: !!promptGraph,
+      generation: flattenJobGenerationDetails(generationDetails.value),
+      workflowFields: flattenJobPromptFields(promptGraph)
+    })
   },
   { immediate: true }
 )

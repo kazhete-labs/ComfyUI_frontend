@@ -104,15 +104,28 @@ export function getPreviewableOutputsFromJobDetail(
 
 // ===== Job Detail Caching =====
 
+function isTerminalJobDetail(detail: JobDetail): boolean {
+  return (
+    detail.status === 'completed' ||
+    detail.status === 'failed' ||
+    detail.status === 'cancelled'
+  )
+}
+
+/**
+ * Pending / in_progress details change as the job runs, and a hover while
+ * queued used to cache a stub without `workflow` that then hid seeds/LoRAs
+ * after completion. Only terminal details are stable enough to cache.
+ */
 export async function getJobDetail(
   jobId: string
 ): Promise<JobDetail | undefined> {
   const cached = jobDetailCache.get(jobId)
-  if (cached) return cached
+  if (cached && isTerminalJobDetail(cached)) return cached
 
   try {
     const detail = await api.getJobDetail(jobId)
-    if (detail) {
+    if (detail && isTerminalJobDetail(detail)) {
       jobDetailCache.set(jobId, detail)
     }
     return detail

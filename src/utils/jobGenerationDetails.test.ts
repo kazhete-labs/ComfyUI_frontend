@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   extractJobGenerationDetails,
   extractJobPromptGraph,
+  flattenJobGenerationDetails,
+  flattenJobPromptFields,
   hasJobGenerationDetails
 } from '@/utils/jobGenerationDetails'
 
@@ -93,6 +95,38 @@ describe('extractJobGenerationDetails', () => {
       prompts: []
     })
     expect(hasJobGenerationDetails(extractJobGenerationDetails({}))).toBe(false)
+  })
+})
+
+describe('flattenJobPromptFields', () => {
+  it('flattens resolved scalars as node.input keys', () => {
+    const prompt = {
+      '4': {
+        class_type: 'LoraLoaderModelOnly',
+        inputs: {
+          lora_name: 'z-image/personas/bibi_lnx_v1.safetensors',
+          strength_model: ['12', 0],
+          model: ['1', 0]
+        },
+        _meta: { title: 'in:lora' }
+      },
+      '12': {
+        class_type: 'Mistralys_RandomFloat',
+        inputs: { value: 0.8 },
+        _meta: { title: 'in:lora_strength' }
+      }
+    }
+
+    expect(flattenJobPromptFields(prompt)).toEqual({
+      'in:lora.lora_name': 'z-image/personas/bibi_lnx_v1.safetensors',
+      'in:lora.strength_model': '0.8',
+      'in:lora_strength.value': '0.8'
+    })
+    expect(
+      flattenJobGenerationDetails(extractJobGenerationDetails(prompt))
+    ).toEqual({
+      'strength (bibi_lnx_v1.safetensors)': '0.8'
+    })
   })
 })
 

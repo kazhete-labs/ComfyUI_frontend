@@ -200,3 +200,49 @@ export function hasJobGenerationDetails(
     details.prompts.length > 0
   )
 }
+
+/**
+ * Flatten resolved scalar inputs from an API prompt graph to `node.input → value`.
+ * Links are followed; model/latent wires that stay as links are skipped.
+ */
+export function flattenJobPromptFields(
+  prompt: unknown
+): Record<string, string> {
+  if (!isApiPrompt(prompt)) return {}
+
+  const fields: Record<string, string> = {}
+  for (const [id, node] of Object.entries(prompt)) {
+    const inputs = node.inputs
+    if (!inputs) continue
+    const name = nodeName(id, node)
+    for (const [key, raw] of Object.entries(inputs)) {
+      const resolved = resolveValue(prompt, raw)
+      if (typeof resolved === 'boolean') {
+        fields[`${name}.${key}`] = String(resolved)
+        continue
+      }
+      const scalar = formatScalar(resolved)
+      if (scalar !== undefined) {
+        fields[`${name}.${key}`] = scalar
+      }
+    }
+  }
+  return fields
+}
+
+/** UI-facing rows we already extract, as flat key → value. */
+export function flattenJobGenerationDetails(
+  details: JobGenerationDetails
+): Record<string, string> {
+  const fields: Record<string, string> = {}
+  for (const seed of details.seeds) {
+    fields[`seed (${seed.nodeName})`] = seed.value
+  }
+  for (const strength of details.strengths) {
+    fields[`strength (${strength.loraName})`] = strength.value
+  }
+  for (const prompt of details.prompts) {
+    fields[`prompt (${prompt.nodeName})`] = prompt.value
+  }
+  return fields
+}

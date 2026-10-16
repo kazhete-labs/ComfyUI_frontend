@@ -350,6 +350,30 @@ describe('jobOutputCache', () => {
       expect(api.getJobDetail).toHaveBeenCalledTimes(1)
     })
 
+    it('does not cache pending job details so a later fetch can include workflow', async () => {
+      const jobId = uniqueId('job-pending')
+
+      const pendingDetail: JobDetail = {
+        id: jobId,
+        status: 'pending',
+        create_time: Date.now(),
+        priority: 0,
+        outputs: {}
+      }
+      const completedDetail: JobDetail = {
+        ...pendingDetail,
+        status: 'completed',
+        workflow: { prompt: { '1': { class_type: 'KSampler', inputs: {} } } }
+      }
+      vi.mocked(api.getJobDetail)
+        .mockResolvedValueOnce(pendingDetail)
+        .mockResolvedValueOnce(completedDetail)
+
+      expect(await getJobDetail(jobId)).toEqual(pendingDetail)
+      expect(await getJobDetail(jobId)).toEqual(completedDetail)
+      expect(api.getJobDetail).toHaveBeenCalledTimes(2)
+    })
+
     it('returns undefined on fetch error', async () => {
       const jobId = uniqueId('job-error')
 
